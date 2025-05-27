@@ -58,7 +58,7 @@
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
 		<PackageReference Include="Macross.Json.Extensions" Version="3.0.0" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>
