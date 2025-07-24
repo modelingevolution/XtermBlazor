@@ -28,13 +28,13 @@ jobs:
         node-version: '18'
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore XtermBlazor.sln
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build XtermBlazor.sln --configuration Release --no-restore
       
     - name: Test
-      run: dotnet test --no-build --verbosity normal --configuration Release
+      run: dotnet test XtermBlazor.sln --no-build --verbosity normal --configuration Release
       
     - name: Pack (dry run)
       run: dotnet pack XtermBlazor/XtermBlazor.csproj --configuration Release --no-build --output ./nupkgs

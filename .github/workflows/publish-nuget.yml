@@ -46,10 +46,10 @@ jobs:
         sed -i "s/<Version>.*<\/Version>/<Version>${VERSION}<\/Version>/" XtermBlazor/XtermBlazor.csproj
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore XtermBlazor.sln
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build XtermBlazor.sln --configuration Release --no-restore
       
     - name: Pack
       run: dotnet pack XtermBlazor/XtermBlazor.csproj --configuration Release --no-build --output ./nupkgs
