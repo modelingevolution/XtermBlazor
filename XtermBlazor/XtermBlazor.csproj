@@ -13,6 +13,7 @@
 		to get incremental builds to work correctly (albeit not as fast as if FastUpToDateCheck did work
 		for them) -->
 		<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+		<PackageId>ModelingEvolution.XTermBlazor</PackageId>
 		<Authors>BattlefieldDuck</Authors>
 		<RepositoryUrl>https://github.com/BattlefieldDuck/XtermBlazor</RepositoryUrl>
 		<PackageProjectUrl>https://github.com/BattlefieldDuck/XtermBlazor</PackageProjectUrl>
