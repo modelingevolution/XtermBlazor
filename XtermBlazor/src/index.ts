@@ -10,9 +10,13 @@ interface ITerminalObject {
   customWheelEventHandler: (event: WheelEvent) => boolean
 }
 
+interface ITerminalObjectExtended extends ITerminalObject {
+  dotnetRef: any;
+}
+
 class XtermBlazor {
   private readonly _ASSEMBLY_NAME = 'XtermBlazor';
-  private readonly _terminals = new Map<string, ITerminalObject>();
+  private readonly _terminals = new Map<string, ITerminalObjectExtended>();
   private readonly _addonList = new Map<string, ITerminalAddon>();
 
   /**
@@ -20,40 +24,41 @@ class XtermBlazor {
    * @param ref - The HTML element where the terminal will be attached.
    * @param options - The configuration options for the terminal.
    * @param addonIds - An array of addon identifiers to be used with the terminal.
+   * @param dotnetRef - The DotNetObjectReference for callbacks (required for .NET 10 mixed-runtime support).
    */
-  registerTerminal(id: string, ref: HTMLElement, options: ITerminalOptions, addonIds: string[]) {
+  registerTerminal(id: string, ref: HTMLElement, options: ITerminalOptions, addonIds: string[], dotnetRef: any) {
     // Setup the XTerm terminal
     const terminal = new Terminal(options);
 
-    // Create Listeners
-    terminal.onBinary(data => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnBinary', id, data));
-    terminal.onCursorMove(() => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnCursorMove', id));
-    terminal.onData(data => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnData', id, data));
-    terminal.onKey(({ key, domEvent }) => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnKey', id, { Key: key, DomEvent: this.parseKeyboardEvent(domEvent) }));
-    terminal.onLineFeed(() => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnLineFeed', id));
-    terminal.onScroll(newPosition => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnScroll', id, newPosition));
-    terminal.onSelectionChange(() => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnSelectionChange', id));
-    terminal.onRender(event => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnRender', id, event));
-    terminal.onResize(({ cols, rows }) => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnResize', id, { columns: cols, rows: rows }));
-    terminal.onTitleChange(title => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnTitleChange', id, title));
-    terminal.onBell(() => DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'OnBell', id));
+    // Create Listeners using instance-based invocation for .NET 10 compatibility
+    terminal.onBinary(data => dotnetRef.invokeMethodAsync('OnBinary', data));
+    terminal.onCursorMove(() => dotnetRef.invokeMethodAsync('OnCursorMove'));
+    terminal.onData(data => dotnetRef.invokeMethodAsync('OnData', data));
+    terminal.onKey(({ key, domEvent }) => dotnetRef.invokeMethodAsync('OnKey', { Key: key, DomEvent: this.parseKeyboardEvent(domEvent) }));
+    terminal.onLineFeed(() => dotnetRef.invokeMethodAsync('OnLineFeed'));
+    terminal.onScroll(newPosition => dotnetRef.invokeMethodAsync('OnScroll', newPosition));
+    terminal.onSelectionChange(() => dotnetRef.invokeMethodAsync('OnSelectionChange'));
+    terminal.onRender(event => dotnetRef.invokeMethodAsync('OnRender', event));
+    terminal.onResize(({ cols, rows }) => dotnetRef.invokeMethodAsync('OnResize', { columns: cols, rows: rows }));
+    terminal.onTitleChange(title => dotnetRef.invokeMethodAsync('OnTitleChange', title));
+    terminal.onBell(() => dotnetRef.invokeMethodAsync('OnBell'));
     terminal.attachCustomKeyEventHandler(event => {
       try {
         // Synchronous for Blazor WebAssembly apps only.
-        return DotNet.invokeMethod(this._ASSEMBLY_NAME, 'AttachCustomKeyEventHandler', id, this.parseKeyboardEvent(event));
+        return dotnetRef.invokeMethod('AttachCustomKeyEventHandler', this.parseKeyboardEvent(event));
       } catch {
         // Asynchronous for both Blazor Server and Blazor WebAssembly apps.
-        DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'AttachCustomKeyEventHandler', id, this.parseKeyboardEvent(event));
+        dotnetRef.invokeMethodAsync('AttachCustomKeyEventHandler', this.parseKeyboardEvent(event));
         return this.getTerminalObjectById(id).customKeyEventHandler(event);
       }
     });
     terminal.attachCustomWheelEventHandler(event => {
       try {
         // Synchronous for Blazor WebAssembly apps only.
-        return DotNet.invokeMethod(this._ASSEMBLY_NAME, 'AttachCustomWheelEventHandler', id, event);
+        return dotnetRef.invokeMethod('AttachCustomWheelEventHandler', event);
       } catch {
         // Asynchronous for both Blazor Server and Blazor WebAssembly apps.
-        DotNet.invokeMethodAsync(this._ASSEMBLY_NAME, 'AttachCustomWheelEventHandler', id, event);
+        dotnetRef.invokeMethodAsync('AttachCustomWheelEventHandler', event);
         return this.getTerminalObjectById(id).customWheelEventHandler(event);
       }
     });
@@ -75,6 +80,7 @@ class XtermBlazor {
       addons: addons,
       customKeyEventHandler: (event: KeyboardEvent) => true,
       customWheelEventHandler: (event: WheelEvent) => true,
+      dotnetRef: dotnetRef,
     });
   }
 
@@ -106,7 +112,11 @@ class XtermBlazor {
    * The function retrieves the terminal instance using the provided id, disposes of the terminal, and removes it from the internal terminals list.
    */
   disposeTerminal(id: string) {
-    this._terminals.get(id)?.terminal.dispose();
+    const terminalObj = this._terminals.get(id);
+    if (terminalObj) {
+      terminalObj.terminal.dispose();
+      terminalObj.dotnetRef?.dispose();
+    }
     return this._terminals.delete(id);
   }
 
@@ -154,11 +164,11 @@ class XtermBlazor {
   /**
    * This function retrieves a terminal object by its unique identifier.
    * @param id {string} - The unique identifier for the terminal.
-   * @returns {ITerminalObject} - The terminal object associated with the provided id.
+   * @returns {ITerminalObjectExtended} - The terminal object associated with the provided id.
    *
    * The function retrieves the terminal instance from the internal terminals list using the provided id. If no terminal is found, it throws an error.
    */
-  getTerminalObjectById(id: string): ITerminalObject {
+  getTerminalObjectById(id: string): ITerminalObjectExtended {
     const terminal = this._terminals.get(id);
 
     if (!terminal) {

@@ -15,6 +15,7 @@ namespace XtermBlazor
         private const string NAMESPACE_PREFIX = nameof(XtermBlazor);
 
         private readonly Dictionary<string, XtermAddon> _xtermAddons = [];
+        private DotNetObjectReference<Xterm>? _dotnetRef;
 
         [Inject]
         internal IJSRuntime JSRuntime { get; set; } = default!;
@@ -181,7 +182,10 @@ namespace XtermBlazor
                     _xtermAddons.Add(addonId, new XtermAddon(this, addonId));
                 }
 
-                await JSRuntime.InvokeVoidAsync($"{NAMESPACE_PREFIX}.registerTerminal", Id, ElementReference, Options, Addons);
+                // Create DotNetObjectReference for .NET 10 mixed-runtime compatibility
+                _dotnetRef = DotNetObjectReference.Create(this);
+
+                await JSRuntime.InvokeVoidAsync($"{NAMESPACE_PREFIX}.registerTerminal", Id, ElementReference, Options, Addons, _dotnetRef);
 
                 IsRendered = true;
 
@@ -575,7 +579,92 @@ namespace XtermBlazor
                 }
             }
 
+            // Dispose DotNetObjectReference
+            _dotnetRef?.Dispose();
+
             GC.SuppressFinalize(this);
         }
+
+        #region JSInvokable Callbacks for .NET 10 Mixed-Runtime Support
+
+        /// <summary>
+        /// Callback for when a binary event fires.
+        /// </summary>
+        [JSInvokable("OnBinary")]
+        public Task HandleOnBinary(string data) => OnBinary.InvokeAsync(data);
+
+        /// <summary>
+        /// Callback for when the cursor moves.
+        /// </summary>
+        [JSInvokable("OnCursorMove")]
+        public Task HandleOnCursorMove() => OnCursorMove.InvokeAsync();
+
+        /// <summary>
+        /// Callback for when a data event fires.
+        /// </summary>
+        [JSInvokable("OnData")]
+        public Task HandleOnData(string data) => OnData.InvokeAsync(data);
+
+        /// <summary>
+        /// Callback for when a key is pressed.
+        /// </summary>
+        [JSInvokable("OnKey")]
+        public Task HandleOnKey(KeyEventArgs @event) => OnKey.InvokeAsync(@event);
+
+        /// <summary>
+        /// Callback for when a line feed is added.
+        /// </summary>
+        [JSInvokable("OnLineFeed")]
+        public Task HandleOnLineFeed() => OnLineFeed.InvokeAsync();
+
+        /// <summary>
+        /// Callback for when a scroll occurs.
+        /// </summary>
+        [JSInvokable("OnScroll")]
+        public Task HandleOnScroll(int newPosition) => OnScroll.InvokeAsync(newPosition);
+
+        /// <summary>
+        /// Callback for when a selection change occurs.
+        /// </summary>
+        [JSInvokable("OnSelectionChange")]
+        public Task HandleOnSelectionChange() => OnSelectionChange.InvokeAsync();
+
+        /// <summary>
+        /// Callback for when rows are rendered.
+        /// </summary>
+        [JSInvokable("OnRender")]
+        public Task HandleOnRender(RenderEventArgs @event) => OnRender.InvokeAsync(@event);
+
+        /// <summary>
+        /// Callback for when the terminal is resized.
+        /// </summary>
+        [JSInvokable("OnResize")]
+        public Task HandleOnResize(ResizeEventArgs @event) => OnResize.InvokeAsync(@event);
+
+        /// <summary>
+        /// Callback for when an OSC 0 or OSC 2 title change occurs.
+        /// </summary>
+        [JSInvokable("OnTitleChange")]
+        public Task HandleOnTitleChange(string title) => OnTitleChange.InvokeAsync(title);
+
+        /// <summary>
+        /// Callback for when the bell is triggered.
+        /// </summary>
+        [JSInvokable("OnBell")]
+        public Task HandleOnBell() => OnBell.InvokeAsync();
+
+        /// <summary>
+        /// Callback for custom key event handler.
+        /// </summary>
+        [JSInvokable("AttachCustomKeyEventHandler")]
+        public bool HandleAttachCustomKeyEventHandler(KeyboardEventArgs @event) => CustomKeyEventHandler.Invoke(@event);
+
+        /// <summary>
+        /// Callback for custom wheel event handler.
+        /// </summary>
+        [JSInvokable("AttachCustomWheelEventHandler")]
+        public bool HandleAttachCustomWheelEventHandler(WheelEventArgs @event) => CustomWheelEventHandler.Invoke(@event);
+
+        #endregion
     }
 }
