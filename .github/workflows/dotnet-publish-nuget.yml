@@ -24,6 +24,9 @@ jobs:
         with:
           node-version: 18
 
+      - name: Clean wwwroot to force TypeScript recompilation
+        run: rm -rf XtermBlazor/wwwroot
+
       - name: Build .NET project
         run: dotnet build XtermBlazor -c Release
 
